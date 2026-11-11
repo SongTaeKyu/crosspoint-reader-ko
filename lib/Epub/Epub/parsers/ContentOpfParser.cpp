@@ -215,6 +215,15 @@ void XMLCALL ContentOpfParser::startElement(void* userData, const XML_Char* name
     return;
   }
 
+  if (self->state == IN_METADATA && xmlLocalNameEquals(name, "publisher")) {
+    // Only capture the first publisher element
+    if (self->publisher.empty()) {
+      self->state = IN_BOOK_PUBLISHER;
+      self->metadataSpacePending = false;
+    }
+    return;
+  }
+
   if (self->state == IN_METADATA && xmlLocalNameEquals(name, "language")) {
     self->state = IN_BOOK_LANGUAGE;
     self->metadataSpacePending = false;
@@ -483,6 +492,11 @@ void XMLCALL ContentOpfParser::characterData(void* userData, const XML_Char* s, 
     return;
   }
 
+  if (self->state == IN_BOOK_PUBLISHER) {
+    appendMetadataText(self->publisher, s, len, self->metadataSpacePending);
+    return;
+  }
+
   if (self->state == IN_BOOK_LANGUAGE) {
     appendMetadataText(self->language, s, len, self->metadataSpacePending);
     return;
@@ -531,6 +545,11 @@ void XMLCALL ContentOpfParser::endElement(void* userData, const XML_Char* name) 
   }
 
   if (self->state == IN_BOOK_AUTHOR && xmlLocalNameEquals(name, "creator")) {
+    self->state = IN_METADATA;
+    return;
+  }
+
+  if (self->state == IN_BOOK_PUBLISHER && xmlLocalNameEquals(name, "publisher")) {
     self->state = IN_METADATA;
     return;
   }

@@ -14,9 +14,10 @@ class BookMetadataCache {
   struct BookMetadata {
     std::string title;
     std::string author;
+    std::string publisher;
     std::string language;
     std::string coverItemHref;
-    std::string textReferenceHref;
+    std::string textReferenceHref;  
   };
 
   struct SpineEntry {

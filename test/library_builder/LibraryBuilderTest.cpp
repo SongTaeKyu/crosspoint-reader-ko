@@ -141,6 +141,54 @@ TEST_F(LibraryBuilderTest, UnchangedRebuildReusesMetadataAndDoesNotReplaceIndex)
   EXPECT_EQ(fake::files[INDEX]->bytes, old);
 }
 
+TEST_F(LibraryBuilderTest, PublisherIsStoredAndSurvivesUnchangedRebuild) {
+  bookMetadata["/a.epub"].publisher = "Parnassus Press";
+  initial();
+
+  const auto check = [](LibraryIndexFile& index) {
+    ASSERT_TRUE(index.open(INDEX));
+    ASSERT_EQ(index.header().bookCount, 2u);
+    bool sawA = false;
+    bool sawB = false;
+    for (uint16_t ordinal = 0; ordinal < index.header().bookCount; ordinal++) {
+      ClixRecord record{};
+      std::string path;
+      std::string title;
+      std::string author;
+      std::string publisher;
+      ASSERT_TRUE(index.readRecord(ordinal, record));
+      ASSERT_TRUE(index.readPath(record, path));
+      // Neighbouring blobs must be unaffected by the new one.
+      ASSERT_TRUE(index.readTitle(record, title));
+      ASSERT_TRUE(index.readAuthor(record, author));
+      EXPECT_EQ(title, "Title");
+      EXPECT_EQ(author, "Author");
+      if (path == "/a.epub") {
+        EXPECT_TRUE(index.readPublisher(record, publisher));
+        EXPECT_EQ(publisher, "Parnassus Press");
+        sawA = true;
+      } else if (path == "/b.epub") {
+        EXPECT_FALSE(index.readPublisher(record, publisher));
+        EXPECT_TRUE(publisher.empty());
+        sawB = true;
+      }
+    }
+    EXPECT_TRUE(sawA);
+    EXPECT_TRUE(sawB);
+    index.close();
+  };
+
+  LibraryIndexFile first;
+  check(first);
+
+  fake::parses = 0;
+  ASSERT_TRUE(buildLibraryIndex("/", stats, true));
+  EXPECT_EQ(fake::parses, 0u);
+  EXPECT_EQ(stats.metadataReused, 2);
+  LibraryIndexFile second;
+  check(second);
+}
+
 TEST_F(LibraryBuilderTest, FolderHeavyUnchangedReconciliationIoScalesLinearly) {
   const auto measure = [this](const unsigned count) {
     fake::reset();

@@ -12,6 +12,7 @@ void RecentBooksStore::toJson(JsonDocument& doc) const {
     obj["path"] = book.path;
     obj["title"] = book.title;
     obj["author"] = book.author;
+    obj["publisher"] = book.publisher;
     obj["coverBmpPath"] = book.coverBmpPath;
   }
 }
@@ -28,6 +29,7 @@ bool RecentBooksStore::fromJson(JsonVariantConst doc) {
     book.path = obj["path"] | "";
     book.title = obj["title"] | "";
     book.author = obj["author"] | "";
+    book.publisher = obj["publisher"] | "";
     book.coverBmpPath = obj["coverBmpPath"] | "";
     recentBooks.push_back(book);
   }
@@ -37,7 +39,7 @@ bool RecentBooksStore::fromJson(JsonVariantConst doc) {
 }
 
 void RecentBooksStore::addBook(const std::string& path, const std::string& title, const std::string& author,
-                               const std::string& coverBmpPath) {
+                               const std::string& coverBmpPath, const std::string& publisher) {
   // Drop stale entries first so a new add can't evict a valid book in their stead.
   pruneMissing();
 
@@ -51,9 +53,10 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
     RecentBook& book = recentBooks.front();
     if (book.title != title) book.title = title;
     if (book.author != author) book.author = author;
+    if (book.publisher != publisher) book.publisher = publisher;
     if (book.coverBmpPath != coverBmpPath) book.coverBmpPath = coverBmpPath;
   } else {
-    recentBooks.insert(recentBooks.begin(), {path, title, author, coverBmpPath});
+    recentBooks.insert(recentBooks.begin(), {path, title, author, publisher, coverBmpPath});
     if (recentBooks.size() > MAX_RECENT_BOOKS) {
       recentBooks.resize(MAX_RECENT_BOOKS);
     }
@@ -63,13 +66,14 @@ void RecentBooksStore::addBook(const std::string& path, const std::string& title
 }
 
 void RecentBooksStore::updateBook(const std::string& path, const std::string& title, const std::string& author,
-                                  const std::string& coverBmpPath) {
+                                  const std::string& coverBmpPath, const std::string& publisher) {
   auto it =
       std::find_if(recentBooks.begin(), recentBooks.end(), [&](const RecentBook& book) { return book.path == path; });
   if (it != recentBooks.end()) {
     RecentBook& book = *it;
     book.title = title;
     book.author = author;
+    book.publisher = publisher;
     book.coverBmpPath = coverBmpPath;
     saveToFile();
   }

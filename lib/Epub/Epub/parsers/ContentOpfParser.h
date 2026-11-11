@@ -18,6 +18,7 @@ class ContentOpfParser final : public Print {
     IN_METADATA,
     IN_BOOK_TITLE,
     IN_BOOK_AUTHOR,
+    IN_BOOK_PUBLISHER,
     IN_BOOK_LANGUAGE,
     IN_BOOK_IDENTIFIER,
     IN_META_TEXT,
@@ -85,6 +86,7 @@ class ContentOpfParser final : public Print {
  public:
   std::string title;
   std::string author;
+  std::string publisher;
   std::string language;
   std::string isbn;
   std::string asin;

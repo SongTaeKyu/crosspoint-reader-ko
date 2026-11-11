@@ -104,6 +104,7 @@ bool Epub::parseContentOpf(BookMetadataCache::BookMetadata& bookMetadata, const 
   // mark) text renders correctly — the device fonts have no mark positioning.
   bookMetadata.title = utf8ComposeNfc(opfParser.title);
   bookMetadata.author = utf8ComposeNfc(opfParser.author);
+  bookMetadata.publisher = utf8ComposeNfc(opfParser.publisher);
   bookMetadata.language = opfParser.language;
 
   if (metadataOnly) {
@@ -653,8 +654,14 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
 }
 
 bool Epub::loadMetadata(std::string& title, std::string& author) {
+  std::string publisher;
+  return loadMetadata(title, author, publisher);
+}
+
+bool Epub::loadMetadata(std::string& title, std::string& author, std::string& publisher) {
   title.clear();
   author.clear();
+  publisher.clear();
 
   if (Txt::isTxtOrMd(filepath)) {
     title = utf8ComposeNfc(FsHelpers::getFileNameWithoutExtension(filepath));
@@ -665,6 +672,7 @@ bool Epub::loadMetadata(std::string& title, std::string& author) {
   if (metadataCache && metadataCache->load()) {
     title = metadataCache->coreMetadata.title;
     author = metadataCache->coreMetadata.author;
+    publisher = metadataCache->coreMetadata.publisher;
     return true;
   }
   if (!metadataCache) {
@@ -685,6 +693,7 @@ bool Epub::loadMetadata(std::string& title, std::string& author) {
 
   title = std::move(metadata.title);
   author = std::move(metadata.author);
+  publisher = std::move(metadata.publisher);
   return true;
 }
 
@@ -764,6 +773,12 @@ const std::string& Epub::getAuthor() const {
   static std::string blank;
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) return blank;
   return bookMetadataCache->coreMetadata.author;
+}
+
+const std::string& Epub::getPublisher() const {
+  static std::string blank;
+  if (!bookMetadataCache || !bookMetadataCache->isLoaded()) return blank;
+  return bookMetadataCache->coreMetadata.publisher;
 }
 
 const std::string& Epub::getLanguage() const {

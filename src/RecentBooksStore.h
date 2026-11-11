@@ -9,6 +9,7 @@ struct RecentBook {
   std::string path;
   std::string title;
   std::string author;
+  std::string publisher;
   std::string coverBmpPath;
 
   bool operator==(const RecentBook& other) const { return path == other.path; }
@@ -33,10 +34,10 @@ class RecentBooksStore : public PersistableStore<RecentBooksStore> {
 
   // Add a book to the recent list (moves to front if already exists)
   void addBook(const std::string& path, const std::string& title, const std::string& author,
-               const std::string& coverBmpPath);
+               const std::string& coverBmpPath, const std::string& publisher = "");
 
   void updateBook(const std::string& path, const std::string& title, const std::string& author,
-                  const std::string& coverBmpPath);
+                  const std::string& coverBmpPath, const std::string& publisher = "");
 
   // Remove the entry whose path matches (used when a book is removed from recents or finished/read).
   // Returns true if an entry was found and removed (no-op + false otherwise).

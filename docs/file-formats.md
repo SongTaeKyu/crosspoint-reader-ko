@@ -6,10 +6,12 @@ All POD fields are written in the ESP32 little-endian representation used by
 
 ## `book.bin`
 
-### Version 10
+### Version 11
 
 `book.bin` stores EPUB metadata plus lookup tables for spine and TOC entries.
 The current firmware writes this version from `BookMetadataCache`.
+Version 11 adds the `publisher` string (`dc:publisher`) between `author` and
+`language`; older caches are rebuilt on the next open.
 
 ImHex pattern:
 
@@ -18,7 +20,7 @@ import std.mem;
 import std.string;
 import std.core;
 
-#define EXPECTED_VERSION 10
+#define EXPECTED_VERSION 11
 #define MAX_STRING_LENGTH 65535
 
 struct String {
@@ -36,6 +38,7 @@ fn format_string(String s) {
 struct Metadata {
     String title [[comment("Book title")]];
     String author [[comment("Book author")]];
+    String publisher [[comment("Book publisher (dc:publisher)")]];
     String language [[comment("Book language code")]];
     String coverItemHref [[comment("Path to cover image")]];
     String textReferenceHref [[comment("Path to guided first text reference")]];
@@ -89,6 +92,17 @@ if (parsedSize != fileSize) {
 ```
 
 ## `section.bin`
+
+### Versions 101 and 102 (Korean fork)
+
+Both keep the version 100 header. They only invalidate older caches because the
+character-wrap layout changed:
+
+- 101: the first-line indent (`paragraphIndentSpaces`) is applied.
+- 102: superscript/subscript runs are measured at their drawn width, each line
+  keeps the block's left inset, a small gap precedes a superscript/subscript
+  glued to body text, and a hanging indent is clamped to the left inset (this
+  last change also affects the word-wrap layout).
 
 ### Version 100 (Korean fork)
 

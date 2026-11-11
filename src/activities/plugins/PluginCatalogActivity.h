@@ -122,7 +122,7 @@ class PluginCatalogActivity final : public CatalogActivity {
   };
 
   struct Item {
-    std::string title, author, id, url;
+    std::string title, author, publisher, id, url;
     std::string version;  // catalog version (tracksInstalls only)
     std::string status;   // computed install/update badge shown in the row value
     bool isDir = false;   // a container/folder (navigable), not a downloadable file

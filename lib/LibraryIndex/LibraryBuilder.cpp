@@ -40,6 +40,7 @@ constexpr size_t NAME_BUF_SIZE = 512;
 // the display name. Fixed stride keeps the second pass a seek rather than a scan.
 constexpr size_t STAGE_NAME_BYTES = 255;
 constexpr size_t STAGE_AUTHOR_BYTES = 128;
+constexpr size_t STAGE_PUBLISHER_BYTES = 96;
 // A folder path is stored behind one length byte in the folder section.
 constexpr size_t FOLDER_PATH_BYTES = 255;
 struct StagedEntry {
@@ -57,6 +58,9 @@ struct StagedEntry {
   // title on the other.
   uint8_t titleLen;
   char title[STAGE_NAME_BYTES];
+  // dc:publisher, UTF-8 safe truncated. Stored as the fourth name blob.
+  uint8_t publisherLen;
+  char publisher[STAGE_PUBLISHER_BYTES];
 };
 constexpr size_t STAGE_STRIDE = sizeof(StagedEntry);
 
@@ -299,6 +303,7 @@ int findPrior(WalkState& st, const uint64_t pathHash) {
   // and a name pulled out of one by pattern is a guess wearing a fact's clothes.
   std::string title = stemOf(name);
   std::string author;
+  std::string publisher;
   bool titleFromBook = false;
   bool authorFromBook = false;
 
@@ -331,6 +336,12 @@ int findPrior(WalkState& st, const uint64_t pathHash) {
       st.failed = true;
       return false;
     }
+    // Empty is a valid value; only an I/O failure aborts the build.
+    const bool hasBookPublisher = st.previous->readPublisher(priorRecord, publisher);
+    if (!hasBookPublisher && st.previous->ioFailed()) {
+      st.failed = true;
+      return false;
+    }
     entry.record = priorRecord;
     authorFromBook = !author.empty();
     if (hasBookTitle) {
@@ -359,7 +370,7 @@ int findPrior(WalkState& st, const uint64_t pathHash) {
       }
     } else {
       Epub epub(fullPath, CACHE_DIR);
-      loaded = epub.loadMetadata(bookTitle, author);
+      loaded = epub.loadMetadata(bookTitle, author, publisher);
     }
     if (loaded) {
       entry.record.metadataStatus = CLIX_METADATA_EXTRACTED;
@@ -426,6 +437,11 @@ int findPrior(WalkState& st, const uint64_t pathHash) {
   const std::string displayAuthor = cleanPersonName(author);
   entry.authorLen = static_cast<uint8_t>(std::min(displayAuthor.size(), STAGE_AUTHOR_BYTES));
   memcpy(entry.author, displayAuthor.data(), entry.authorLen);
+
+  const size_t publisherBytes = std::min(publisher.size(), STAGE_PUBLISHER_BYTES);
+  entry.publisherLen =
+      static_cast<uint8_t>(utf8SafeTruncateBuffer(publisher.data(), static_cast<int>(publisherBytes)));
+  memcpy(entry.publisher, publisher.data(), entry.publisherLen);
 
   st.stageOut->write(&entry, STAGE_STRIDE);
   st.books++;
@@ -564,7 +580,7 @@ void walk(WalkState& st, const std::string& path, const int depth) {
 // truth.
 uint32_t blobBytesFor(const StagedEntry& entry, const StagedEntry& canonical) {
   return sizeof(entry.pathHash) + entry.record.nameLen + 1u + canonical.authorLen + 1u + entry.titleLen + 1u +
-         entry.authorLen;
+         entry.authorLen + 1u + entry.publisherLen;
 }
 
 bool emitIndex(const char* folderStagePath, WalkState& st, const uint16_t* order, const uint16_t* resolvedFirstSeen,
@@ -1011,6 +1027,8 @@ bool emitIndex(const char* folderStagePath, WalkState& st, const uint16_t* order
     if (entry.titleLen > 0) put(entry.title, entry.titleLen);
     put(&entry.authorLen, 1);
     if (entry.authorLen > 0) put(entry.author, entry.authorLen);
+    put(&entry.publisherLen, 1);
+    if (entry.publisherLen > 0) put(entry.publisher, entry.publisherLen);
     blobWritten += blobBytesFor(entry, canonical);
   }
   header.nameLen = blobWritten;

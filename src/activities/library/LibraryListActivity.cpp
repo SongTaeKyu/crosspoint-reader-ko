@@ -273,8 +273,9 @@ void LibraryListActivity::showRecentBookOptions(const int entry) {
     const uint16_t ordinal = index.ordinalForRow(sortOrder, static_cast<uint16_t>(rowFor(entry)));
     library::ClixRecord record{};
     std::string author;
+    std::string publisher;
     if (ordinal == 0xFFFF || !index.readRecord(ordinal, record) || !index.readPath(record, path) ||
-        !rowTextFor(entry, title, author)) {
+        !rowTextFor(entry, title, author, publisher)) {
       LOG_ERR("LIB", "cannot resolve Recent row %d", entry);
       return;
     }
@@ -394,7 +395,8 @@ void LibraryListActivity::promptDeleteBook(const int entry) {
   }
   std::string title;
   std::string author;
-  rowTextFor(entry, title, author);
+  std::string publisher;
+  rowTextFor(entry, title, author, publisher);
   promptDeleteBookByPath(path, title);
 }
 
@@ -563,13 +565,14 @@ bool LibraryListActivity::buildGroupStarts() {
   std::string previousAuthor;
   std::string title;
   std::string author;
+  std::string publisher;
   previousAuthor.reserve(128);
   title.reserve(128);
   author.reserve(128);
   for (int entry = 0; entry < count; entry++) {
     bool startsGroup = entry == 0;
     if (isAuthorSort(sortOrder)) {
-      rowTextFor(entry, title, author);
+      rowTextFor(entry, title, author, publisher);
       startsGroup = startsGroup || author != previousAuthor;
       previousAuthor = author;
     } else {
@@ -705,9 +708,10 @@ void LibraryListActivity::rebuildActionTrampoline(const fui::ActionEvent&, void*
 // Title and author for one entry, read straight from the index. Only ever
 // called for rows about to be drawn, so at most a screenful of strings exists
 // at once.
-bool LibraryListActivity::rowTextFor(const int entry, std::string& title, std::string& author, std::string* fileName) {
+bool LibraryListActivity::rowTextFor(const int entry, std::string& title, std::string& author, std::string& publisher, std::string* fileName) {
   title.clear();
   author.clear();
+  publisher.clear();
   if (fileName) fileName->clear();
   if (entry < pinnedCount()) {
     const auto& books = RECENT_BOOKS.getBooks();
@@ -715,6 +719,8 @@ bool LibraryListActivity::rowTextFor(const int entry, std::string& title, std::s
     const auto& book = books[static_cast<size_t>(entry)];
     title = book.title;
     author = book.author;
+    publisher = book.publisher;
+
     if (fileName) *fileName = book.path;
     return true;
   }
@@ -728,6 +734,7 @@ bool LibraryListActivity::rowTextFor(const int entry, std::string& title, std::s
     if (!index.readAuthor(record, author)) author.clear();
     // The stored title when the book gave one, the filename otherwise.
     if (!index.readTitle(record, title) || title.empty()) index.readName(record, title);
+    if (!index.readPublisher(record, publisher)) publisher.clear();
     if (fileName) index.readName(record, *fileName);
   }
   if (title.empty()) title = tr(STR_LIBRARY_UNKNOWN_TITLE);
@@ -850,6 +857,7 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
   const size_t cap = static_cast<size_t>(nav.visibleRows > 0 ? nav.visibleRows : 1) + 1;
   if (winTitles.size() < cap) winTitles.resize(cap);
   if (winAuthors.size() < cap) winAuthors.resize(cap);
+  if (winPublishers.size() < cap) winPublishers.resize(cap);
   if (!groupsCollapsed && winHeaders.size() < cap) winHeaders.resize(cap);
   winItems.clear();
   if (winItems.capacity() < cap) winItems.reserve(cap);
@@ -864,17 +872,18 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
   for (int entry = windowStart; entry < count && rows < static_cast<int>(cap); entry++) {
     std::string& title = winTitles[static_cast<size_t>(rows)];
     std::string& author = winAuthors[static_cast<size_t>(rows)];
+    std::string& publisher = winPublishers[static_cast<size_t>(rows)];
     fui::ListItem item;
     if (groupsCollapsed) {
       const int bookEntry = groupStarts[entry];
       if (authorGrouped) {
-        rowTextFor(bookEntry, title, author);
+        rowTextFor(bookEntry, title, author, publisher);
         formatAuthorHeading(author, title);
       } else {
         formatInitialHeading(titleInitialFor(bookEntry), title);
       }
     } else {
-      if (!rowTextFor(entry, title, author, &rowFile)) continue;
+      if (!rowTextFor(entry, title, author, publisher, &rowFile)) continue;
       uint32_t initial = 0;
       bool startsGroup = false;
       if (authorGrouped) {
@@ -895,7 +904,14 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
       if (!authorGrouped && !author.empty()) item.subtitle = author.c_str();
     }
 
+    // "제목[출판사]" 형태. title은 winTitles의 원소라 렌더 동안 유지된다.
+    if (!groupsCollapsed && !publisher.empty()) {
+      title += '[';
+      title += publisher;
+      title += ']';
+    }
     item.label = title.c_str();
+
     // Group headings stay bare; every book row gets its file-type icon.
     if (!groupsCollapsed && !rowFile.empty()) item.icon = listIconFor(UITheme::getFileIcon(rowFile), 32);
     item.actionValue = static_cast<int16_t>(entry);

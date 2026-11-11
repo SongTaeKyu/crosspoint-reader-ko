@@ -204,6 +204,36 @@ TEST(ContentOpfParserMetadata, StopsBeforeManifestWithoutOpeningTemporaryStorage
   EXPECT_EQ(Storage.readOpens, 0);
 }
 
+TEST(ContentOpfParserMetadata, ParsesFirstPublisherOnly) {
+  const std::string xml = R"(<package xmlns:dc="urn:dc"><metadata>
+    <dc:title>A Wizard of Earthsea</dc:title>
+    <dc:publisher>Parnassus Press</dc:publisher>
+    <dc:publisher>Second Publisher</dc:publisher>
+    <dc:language>en</dc:language>
+  </metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest>
+  </package>)";
+  Storage = {};
+  ContentOpfParser parser("/missing-cache", "OPS/", xml.size(), nullptr, true);
+
+  ASSERT_TRUE(parser.setup());
+  parser.write(reinterpret_cast<const uint8_t*>(xml.data()), xml.size());
+  EXPECT_EQ(parser.publisher, "Parnassus Press");
+  EXPECT_EQ(parser.language, "en");
+}
+
+TEST(ContentOpfParserMetadata, PublisherIsEmptyWhenMissing) {
+  const std::string xml = R"(<package xmlns:dc="urn:dc"><metadata>
+    <dc:title>A Wizard of Earthsea</dc:title>
+  </metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest>
+  </package>)";
+  Storage = {};
+  ContentOpfParser parser("/missing-cache", "OPS/", xml.size(), nullptr, true);
+
+  ASSERT_TRUE(parser.setup());
+  parser.write(reinterpret_cast<const uint8_t*>(xml.data()), xml.size());
+  EXPECT_TRUE(parser.publisher.empty());
+}
+
 TEST(ContentOpfParserMetadata, NeverEntersManifestWhenMetadataElementIsMissing) {
   const std::string xml =
       R"(<package><manifest><item id="chapter" href="chapter.xhtml"/></manifest><spine/></package>)";
